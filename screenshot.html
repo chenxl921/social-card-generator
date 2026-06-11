@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>截图装裱 - 深色 Indigo Porcelain</title>
+    <!-- 引入 html2canvas 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+        :root {
+            /* Indigo Porcelain 主题色 */
+            --paper: #f2f4f5;
+            --ink: #0a1f3d; /* 深海靛蓝 */
+            --muted: #8b9eb0;
+            --line-light: rgba(255, 255, 255, 0.15); /* 适配深色背景的半透明浅色辅助线 */
+            --accent: #315d93;
+            
+            /* 设计系统变量 */
+            --card-radius: 32px; /* 圆角 */
+            --border-width: 80px; /* 固定边距 */
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+            background-color: #d1d5db;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* 顶部控制台样式 */
+        .control-panel {
+            width: 100%;
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .btn {
+            background-color: var(--ink);
+            color: #fff;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn:hover { background-color: var(--accent); }
+        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        input[type="file"] { display: none; }
+        
+        .upload-label {
+            background-color: var(--paper);
+            color: var(--ink);
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            border: 1px solid rgba(10,31,61,.20);
+        }
+        .upload-label:hover { background-color: #e5ebef; }
+
+        .preview-wrapper {
+            margin-top: 40px;
+            margin-bottom: 40px;
+            position: relative;
+            display: flex; 
+            justify-content: center;
+        }
+
+        /* === 核心海报生成区 === */
+        #capture-area {
+            /* 核心修改：背景切换为深色的 --ink */
+            background-color: var(--ink); 
+            padding: var(--border-width); 
+            border-radius: var(--card-radius); 
+            
+            display: inline-block; 
+            width: max-content; 
+            height: max-content; 
+            
+            transform-origin: top center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+
+        .screenshot {
+            display: block; 
+            width: max-content; 
+            height: auto;
+            border-radius: var(--card-radius); 
+            /* 核心修改：深色背景下，加强黑色阴影的深度，让悬浮感更强 */
+            box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6), 0 10px 30px rgba(0, 0, 0, 0.4);
+            display: none; 
+            /* 核心修改：添加一层极弱的白边，防止深色截图与深色背景融为一体 */
+            border: 1px solid var(--line-light); 
+        }
+
+        /* 占位符样式 */
+        .placeholder {
+            width: 600px;
+            height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            font-size: 20px;
+            border: 2px dashed var(--line-light);
+            border-radius: calc(var(--card-radius) - 10px);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="control-panel">
+        <label for="imageUpload" class="upload-label">
+            1. 选择截图上传 (深色主题)
+        </label>
+        <input type="file" id="imageUpload" accept="image/png, image/jpeg, image/webp">
+        <button id="downloadBtn" class="btn" disabled>2. 渲染并导出圆角卡片</button>
+    </div>
+
+    <div class="preview-wrapper" id="wrapper">
+        <div id="capture-area">
+            <div class="placeholder" id="placeholder">上传原始推文/文字截图<br>自动应用 Indigo 深色装裱</div>
+            <img class="screenshot" id="previewImg" src="" alt="Screenshot">
+        </div>
+    </div>
+
+    <script>
+        const imageUpload = document.getElementById('imageUpload');
+        const previewImg = document.getElementById('previewImg');
+        const placeholder = document.getElementById('placeholder');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const captureArea = document.getElementById('capture-area');
+        const wrapper = document.getElementById('wrapper');
+
+        function updateLayout() {
+            captureArea.style.transform = 'scale(1)';
+            
+            setTimeout(() => {
+                const rect = captureArea.getBoundingClientRect();
+                const realWidth = rect.width;
+                const realHeight = rect.height;
+                
+                const maxWidth = window.innerWidth * 0.9 > 800 ? 800 : window.innerWidth * 0.9;
+                
+                let scale = 1;
+                if (realWidth > maxWidth) {
+                    scale = maxWidth / realWidth;
+                }
+                
+                captureArea.style.transform = `scale(${scale})`;
+                
+                wrapper.style.width = `${realWidth * scale}px`;
+                wrapper.style.height = `${realHeight * scale}px`;
+            }, 50); 
+        }
+
+        previewImg.onload = function() {
+            updateLayout();
+        };
+
+        imageUpload.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                previewImg.src = event.target.result;
+                previewImg.style.display = 'block';
+                placeholder.style.display = 'none';
+                downloadBtn.disabled = false;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        window.addEventListener('resize', () => {
+            if (previewImg.style.display === 'block') {
+                updateLayout();
+            }
+        });
+
+        downloadBtn.addEventListener('click', function() {
+            const originalText = downloadBtn.innerText;
+            downloadBtn.innerText = '正在渲染...';
+            downloadBtn.disabled = true;
+
+            captureArea.style.transform = 'scale(1)';
+
+            setTimeout(() => {
+                html2canvas(captureArea, {
+                    scale: 2, 
+                    backgroundColor: null, 
+                    useCORS: true,
+                    logging: false
+                }).then(canvas => {
+                    updateLayout();
+                    
+                    const link = document.createElement('a');
+                    link.download = `Indigo_Dark_Card_${new Date().getTime()}.png`;
+                    link.href = canvas.toDataURL('image/png', 1.0);
+                    link.click();
+
+                    downloadBtn.innerText = originalText;
+                    downloadBtn.disabled = false;
+                });
+            }, 100);
+        });
+    </script>
+</body>
+</html>
