@@ -3,47 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>截图装裱 - 深色 Indigo (移动端完美自适应版)</title>
+    <title>社交卡片排版引擎 (Indigo)</title>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
         :root {
-            /* Indigo Porcelain 主题色 */
             --paper: #f2f4f5;
-            --ink: #0a1f3d; /* 深海靛蓝 */
+            --ink: #0a1f3d;
             --muted: #8b9eb0;
             --line-light: rgba(255, 255, 255, 0.15);
             --accent: #315d93;
-            
-            /* 设计系统变量：仅在导出瞬间由JS读取并严格应用 */
-            --card-radius: 32px; 
-            --border-width: 80px; 
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
             background-color: #d1d5db;
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            /* 杜绝手机端左右晃动 */
             overflow-x: hidden; 
         }
 
-        /* 顶部控制台样式 */
+        /* 顶部控制台 */
         .control-panel {
             width: 100%;
             background: #fff;
             padding: 15px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            align-items: center;
             gap: 15px;
             position: sticky;
             top: 0;
             z-index: 100;
+        }
+
+        .mode-tabs {
+            display: flex;
+            background-color: #e5ebef;
+            border-radius: 8px;
+            padding: 4px;
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 8px 24px;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .tab-btn.active {
+            background-color: #fff;
+            color: var(--ink);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .input-section {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* 核心新增：排版控制栏（对齐方式） */
+        .text-controls {
+            display: none; /* 默认隐藏，仅在文字模式显示 */
+            align-items: center;
+            background-color: var(--paper);
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(10,31,61,.15);
+            gap: 8px;
+        }
+        .control-label {
+            font-size: 13px;
+            color: var(--muted);
+            margin-right: 4px;
+        }
+        .align-btn {
+            background: none;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .align-btn:hover {
+            color: var(--ink);
+        }
+        .align-btn.active {
+            background-color: #fff;
+            color: var(--ink);
+            font-weight: 500;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        
+        #textInput {
+            width: 100%;
+            min-height: 120px;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(10,31,61,.20);
+            background-color: var(--paper);
+            font-size: 16px;
+            color: var(--ink);
+            resize: vertical;
+            display: none; 
+            line-height: 1.5;
+        }
+        #textInput:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            width: 100%;
         }
 
         .btn {
@@ -57,7 +143,6 @@
             cursor: pointer;
             transition: all 0.2s ease;
         }
-        .btn:hover { background-color: var(--accent); }
         .btn:disabled { background-color: #ccc; cursor: not-allowed; }
         
         input[type="file"] { display: none; }
@@ -70,41 +155,62 @@
             font-size: 15px;
             font-weight: 500;
             cursor: pointer;
-            transition: background 0.2s ease;
             border: 1px solid rgba(10,31,61,.20);
+            text-align: center;
         }
-        .upload-label:hover { background-color: #e5ebef; }
 
-        /* 预览区外层：纯 CSS 自适应，不需要任何 JS 介入 */
+        #status-text {
+            font-size: 13px;
+            color: var(--muted);
+            height: 18px;
+        }
+
+        /* 预览区 */
         .preview-wrapper {
             width: 100%;
-            padding: 20px; /* 保证手机两侧有留白 */
+            padding: 20px;
             display: flex;
             justify-content: center;
+            padding-bottom: 60px;
         }
 
-        /* === 核心海报生成区 === */
         #capture-area {
             background-color: var(--ink); 
-            /* 预览时使用百分比内边距，让它在手机上看起来和谐。导出时会变回 80px */
             padding: 5%; 
-            border-radius: 0; /* 保持为 0，防止抖音白角 */
+            border-radius: 0; 
             box-shadow: 0 20px 40px rgba(0,0,0,0.15);
-            width: fit-content;
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            align-items: center; 
+            justify-content: center; 
+            gap: 20px;
         }
 
         .screenshot {
-            display: none; 
-            /* 核心修改：限制图片最大不超过屏幕，完美自适应排版，消灭幽灵空白 */
             max-width: 100%; 
             height: auto;
-            border-radius: 8px; /* 预览时较小圆角。导出时会变回 32px */
-            
+            border-radius: 8px; 
             box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6), 0 10px 30px rgba(0, 0, 0, 0.4);
             border: 1px solid var(--line-light); 
         }
 
-        /* 占位符样式 */
+        /* 文字排版规范 */
+        .text-content {
+            color: var(--paper); 
+            font-size: 36px; 
+            line-height: 1.7; 
+            letter-spacing: 0.08em; 
+            text-align: center; /* 默认居中 */
+            width: 100%;
+            max-width: 880px; 
+            margin: 0 auto; 
+            white-space: pre-wrap; 
+            display: none; 
+            word-break: break-word; 
+        }
+
         .placeholder {
             width: 100%;
             min-height: 200px;
@@ -123,61 +229,186 @@
 <body>
 
     <div class="control-panel">
-        <label for="imageUpload" class="upload-label">
-            1. 选择截图上传 (深色自适应)
-        </label>
-        <input type="file" id="imageUpload" accept="image/png, image/jpeg, image/webp">
-        <button id="downloadBtn" class="btn" disabled>2. 渲染并导出卡片</button>
+        <div class="mode-tabs">
+            <button class="tab-btn active" id="tabImage">图片排版</button>
+            <button class="tab-btn" id="tabText">纯文字卡片</button>
+        </div>
+
+        <div class="input-section">
+            <label for="imageUpload" class="upload-label" id="uploadLabel">1. 选择多张截图拼图</label>
+            <input type="file" id="imageUpload" accept="image/png, image/jpeg, image/webp" multiple>
+            
+            <div class="text-controls" id="textControls">
+                <span class="control-label">对齐方式</span>
+                <button class="align-btn" data-align="left">左对齐</button>
+                <button class="align-btn active" data-align="center">居中</button>
+                <button class="align-btn" data-align="right">右对齐</button>
+            </div>
+
+            <textarea id="textInput" placeholder="输入你想排版的文字...&#10;系统将自动应用排版与固定边距。"></textarea>
+            
+            <button id="downloadBtn" class="btn" disabled>2. 导出高清卡片</button>
+        </div>
+        <div id="status-text">当前：图片排版模式</div>
     </div>
 
     <div class="preview-wrapper">
         <div id="capture-area">
-            <div class="placeholder" id="placeholder">上传原始推文/文字截图<br>自动应用 Indigo 深色装裱</div>
-            <img class="screenshot" id="previewImg" src="" alt="Screenshot">
-        </div>
+            <div class="placeholder" id="placeholder">在此区域预览排版效果</div>
+            <div class="text-content" id="textContent"></div>
+            </div>
     </div>
 
     <script>
+        const tabImage = document.getElementById('tabImage');
+        const tabText = document.getElementById('tabText');
+        const uploadLabel = document.getElementById('uploadLabel');
+        const textInput = document.getElementById('textInput');
+        const textControls = document.getElementById('textControls');
+        const alignBtns = document.querySelectorAll('.align-btn');
         const imageUpload = document.getElementById('imageUpload');
-        const previewImg = document.getElementById('previewImg');
-        const placeholder = document.getElementById('placeholder');
-        const downloadBtn = document.getElementById('downloadBtn');
+        
         const captureArea = document.getElementById('capture-area');
+        const placeholder = document.getElementById('placeholder');
+        const textContent = document.getElementById('textContent');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const statusText = document.getElementById('status-text');
 
-        // 文件上传：仅显示图片，没有任何算尺寸的 JS 干预
-        imageUpload.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+        let currentMode = 'image'; 
 
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                previewImg.src = event.target.result;
-                previewImg.style.display = 'block';
-                placeholder.style.display = 'none';
-                downloadBtn.disabled = false;
-            };
-            reader.readAsDataURL(file);
+        // 处理对齐方式切换
+        alignBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // 移除所有激活状态
+                alignBtns.forEach(b => b.classList.remove('active'));
+                // 激活当前点击的按钮
+                const targetBtn = e.target;
+                targetBtn.classList.add('active');
+                
+                // 获取对齐属性并应用到文字容器
+                const alignValue = targetBtn.getAttribute('data-align');
+                textContent.style.textAlign = alignValue;
+            });
         });
 
-        // 渲染与导出：瞬间切换到原画尺寸并截取
+        tabImage.addEventListener('click', () => {
+            currentMode = 'image';
+            tabImage.classList.add('active');
+            tabText.classList.remove('active');
+            
+            uploadLabel.style.display = 'block';
+            textInput.style.display = 'none';
+            textControls.style.display = 'none'; // 隐藏对齐控制
+            textContent.style.display = 'none';
+            
+            statusText.innerText = '当前：图片排版模式';
+            
+            const existingImages = captureArea.querySelectorAll('.screenshot');
+            if (existingImages.length > 0) {
+                existingImages.forEach(img => img.style.display = 'block');
+                placeholder.style.display = 'none';
+                downloadBtn.disabled = false;
+            } else {
+                placeholder.style.display = 'flex';
+                downloadBtn.disabled = true;
+            }
+        });
+
+        tabText.addEventListener('click', () => {
+            currentMode = 'text';
+            tabText.classList.add('active');
+            tabImage.classList.remove('active');
+            
+            uploadLabel.style.display = 'none';
+            textInput.style.display = 'block';
+            textControls.style.display = 'flex'; // 显示对齐控制
+            
+            const existingImages = captureArea.querySelectorAll('.screenshot');
+            existingImages.forEach(img => img.style.display = 'none');
+            
+            statusText.innerText = '当前：纯文字卡片模式';
+            
+            if (textInput.value.trim() !== '') {
+                placeholder.style.display = 'none';
+                textContent.style.display = 'block';
+                downloadBtn.disabled = false;
+            } else {
+                placeholder.style.display = 'flex';
+                textContent.style.display = 'none';
+                downloadBtn.disabled = true;
+            }
+        });
+
+        textInput.addEventListener('input', (e) => {
+            const val = e.target.value;
+            textContent.innerText = val; 
+            
+            if (val.trim() !== '') {
+                placeholder.style.display = 'none';
+                textContent.style.display = 'block';
+                downloadBtn.disabled = false;
+                statusText.innerText = `字数：${val.length}`;
+            } else {
+                placeholder.style.display = 'flex';
+                textContent.style.display = 'none';
+                downloadBtn.disabled = true;
+                statusText.innerText = '等待输入...';
+            }
+        });
+
+        imageUpload.addEventListener('change', function(e) {
+            if (currentMode !== 'image') return;
+            
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            const existingImages = captureArea.querySelectorAll('.screenshot');
+            existingImages.forEach(img => img.remove());
+            placeholder.style.display = 'none';
+            downloadBtn.disabled = false;
+            statusText.innerText = `已载入 ${files.length} 张截图。`;
+
+            files.forEach((file) => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const imgNode = document.createElement('img');
+                    imgNode.className = 'screenshot';
+                    imgNode.src = event.target.result;
+                    captureArea.appendChild(imgNode);
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+
         downloadBtn.addEventListener('click', function() {
             const originalText = downloadBtn.innerText;
-            downloadBtn.innerText = '正在渲染...';
+            downloadBtn.innerText = '正在生成超清排版...';
             downloadBtn.disabled = true;
-
-            // 1. 记录滚动条，防止样式切换时屏幕乱跳
             const scrollY = window.scrollY;
 
-            // 2. 注入严格排版规范：拉回原图物理尺寸，注入 80px 边框与 32px 截图圆角
-            captureArea.style.padding = '80px';
-            captureArea.style.borderRadius = '0px'; // 保持绝对直角，对抗抖音引擎
-            captureArea.style.width = 'max-content';
-            
-            previewImg.style.maxWidth = 'none'; // 解除手机端自适应限制
-            previewImg.style.width = previewImg.naturalWidth + 'px'; // 获取真实像素
-            previewImg.style.borderRadius = '32px'; // 恢复原图大圆角切割
+            if (currentMode === 'image') {
+                captureArea.style.maxWidth = 'none';
+                captureArea.style.width = 'max-content';
+                captureArea.style.padding = '80px'; 
+                captureArea.style.gap = '40px';
 
-            // 3. 等待 150ms 让手机浏览器完成重绘
+                const images = captureArea.querySelectorAll('.screenshot');
+                images.forEach(img => {
+                    img.style.display = 'block'; 
+                    img.style.maxWidth = 'none';
+                    img.style.width = img.naturalWidth + 'px'; 
+                    img.style.borderRadius = '32px';
+                });
+            } else {
+                captureArea.style.maxWidth = 'none';
+                captureArea.style.minWidth = '1080px'; 
+                captureArea.style.width = 'max-content';
+                captureArea.style.padding = '160px 100px'; 
+                
+                textContent.style.width = '100%';
+                textContent.style.maxWidth = '880px'; 
+            }
+
             setTimeout(() => {
                 html2canvas(captureArea, {
                     scale: 2, 
@@ -185,21 +416,28 @@
                     useCORS: true,
                     logging: false
                 }).then(canvas => {
-                    // 4. 截图完毕：清除临时注入的样式，恢复和谐的手机预览
                     captureArea.style = '';
-                    previewImg.style = 'display: block;';
+                    if (currentMode === 'image') {
+                        const images = captureArea.querySelectorAll('.screenshot');
+                        images.forEach(img => img.style = 'display: block;');
+                    } else {
+                        // 恢复纯文字模式时，保留用户选择的对齐方式
+                        const currentAlign = document.querySelector('.align-btn.active').getAttribute('data-align');
+                        textContent.style = `display: block; text-align: ${currentAlign};`;
+                    }
+                    
                     window.scrollTo(0, scrollY);
                     
-                    // 5. 下载
+                    const fileName = currentMode === 'image' ? 'Indigo_Image_Card' : 'Indigo_Text_Card';
                     const link = document.createElement('a');
-                    link.download = `Indigo_Dark_Card_${new Date().getTime()}.png`;
+                    link.download = `${fileName}_${new Date().getTime()}.png`;
                     link.href = canvas.toDataURL('image/png', 1.0);
                     link.click();
 
                     downloadBtn.innerText = originalText;
                     downloadBtn.disabled = false;
                 });
-            }, 150);
+            }, 200);
         });
     </script>
 </body>
