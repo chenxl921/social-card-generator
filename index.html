@@ -196,15 +196,20 @@
             border: 1px solid var(--line-light); 
         }
 
-        /* 文字排版规范 */
+ 
+/* 文字排版规范 (适配长文阅读的社媒标准缩放比) */
         .text-content {
             color: var(--paper); 
-            font-size: 36px; 
-            line-height: 1.7; 
-            letter-spacing: 0.08em; 
-            text-align: center; /* 默认居中 */
+            font-size: 26px; /* 缩小为适合长文阅读的正文字号 */
+            font-weight: 400; /* 保持常规字重，显得更细腻 */
+            line-height: 1.8; /* 进一步拉开行高，赋予大段落呼吸感 */
+            letter-spacing: 0.05em; 
+            text-align: center; 
             width: 100%;
-            max-width: 880px; 
+            
+            /* 核心微调：字号缩小后，单行能容纳的字数变多。
+               为了保证阅读不疲劳，收窄版心到 800px，增加两侧的留白 */
+            max-width: 800px; 
             margin: 0 auto; 
             white-space: pre-wrap; 
             display: none; 
